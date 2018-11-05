@@ -31,6 +31,7 @@ for col in df_test.columns:
 msno.matrix(df=df_train.iloc[:, :], figsize=(8, 8), color=(0.8, 0.5, 0.2))
 msno.bar(df=df_train.iloc[:, :], figsize=(8, 8), color=(0.2, 0.5, 0.2))
 
+# 해당 dataset의 feature들을 분석하여 쓸모있는 featrue와 쓸모없는 feature를 가려낸다.
 # Pclass 분석
 f, ax = plt.subplots(1, 2, figsize=(18, 8))
 df_train['Survived'].value_counts().plot.pie(explode=[0, 0.1], autopct='%1.1f%%', ax=ax[0], shadow=True)
@@ -38,7 +39,7 @@ ax[0].set_title('Pie plot - survived')
 ax[0].set_ylabel('')
 sns.countplot('Survived', data=df_train, ax=ax[1])
 ax[1].set_title('Count plot - survived')
-# plt.show()
+plt.show()
 
 print(df_train[['Pclass', 'Survived']].groupby(['Pclass'], as_index=True).count())
 print(df_train[['Pclass', 'Survived']].groupby(['Pclass'], as_index=True).sum())
@@ -50,7 +51,7 @@ print(pd.crosstab(df_train['Pclass'], df_train['Survived'], margins=True))
 print(df_train[['Pclass', 'Survived']].groupby(['Pclass'], as_index=True).mean())
 df_train[['Pclass', 'Survived']].groupby(['Pclass'], as_index=True).mean().sort_values(
     by='Survived', ascending=False).plot.bar()
-# plt.show()
+plt.show()
 
 y_position = 1.02
 f, ax = plt.subplots(1, 2, figsize=(18, 8))
@@ -59,7 +60,7 @@ ax[0].set_title('Number of Passengers By Pclass', y=y_position)
 ax[0].set_ylabel('Count')
 sns.countplot('Pclass', hue='Survived', data=df_train, ax=ax[1])
 ax[1].set_title('Pclass: Survived vs Dead', y=y_position)
-# plt.show()
+plt.show()
 
 # Sex 분석
 f, ax = plt.subplots(1, 2, figsize=(18, 8))
@@ -71,11 +72,11 @@ df_train[['Sex', 'Survived']].groupby(['Sex'], as_index=True).mean().plot.bar(ax
 ax[0].set_title('Survived vs Sex')
 sns.countplot('Sex', hue='Survived', data=df_train, ax=ax[1])
 ax[1].set_title('Sex: Survived vs Dead')
-# plt.show()
+plt.show()
 
 # Sex와 Pclass 상관관계 분석
 sns.factorplot('Pclass', 'Survived', hue='Sex', data=df_train, size=8, aspect=1.5)
-# plt.show()
+plt.show()
 
 # Age 분석
 print(f"제일 나이 많은 탑승객: {df_train['Age'].max():.1f}")
@@ -88,7 +89,7 @@ fig, ax = plt.subplots(1, 1, figsize=(9, 5))
 sns.kdeplot(df_train[df_train['Survived'] == 1]['Age'], ax=ax)
 sns.kdeplot(df_train[df_train['Survived'] == 0]['Age'], ax=ax)
 plt.legend(['Survived == 1', 'Survived == 0'])
-# plt.show()
+plt.show()
 
 plt.figure(figsize=(8, 6))
 df_train['Age'][df_train['Pclass'] == 1].plot(kind='kde')
@@ -98,7 +99,7 @@ df_train['Age'][df_train['Pclass'] == 3].plot(kind='kde')
 plt.xlabel('Age')
 plt.title('Age Distribution within classes')
 plt.legend(['1st Class', '2nd Class', '3rd Class'])
-# plt.show()
+plt.show()
 
 cummulate_survival_ratio = []
 for i in range(1, 80):
@@ -111,7 +112,7 @@ plt.plot(cummulate_survival_ratio)
 plt.title('Survival rate change depending on range of Age', y=1.02)
 plt.ylabel('Survival rate')
 plt.xlabel('Range of Age(0~x)')
-# plt.show()
+plt.show()
 
 f, ax = plt.subplots(1, 2, figsize=(18, 8))
 sns.violinplot("Pclass", "Age", hue="Survived", data=df_train, scale='count', split=True, ax=ax[0])
@@ -120,13 +121,13 @@ ax[0].set_yticks(range(0, 110, 10))
 sns.violinplot("Sex", "Age", hue="Survived", data=df_train, scale="count", split=True, ax=ax[1])
 ax[0].set_title('Sex and Age vs Survived')
 ax[0].set_yticks(range(0, 110, 10))
-# plt.show()
+plt.show()
 
 # Embarked 분석
 f, ax = plt.subplots(1, 2, figsize=(18, 8))
 df_train[['Embarked', 'Survived']].groupby(['Embarked'], as_index=True).mean().sort_values(
     by='Survived', ascending=False).plot.bar()
-# plt.show()
+plt.show()
 
 f, ax = plt.subplots(2, 2, figsize=(20, 15))
 sns.countplot('Embarked', data=df_train, ax=ax[0, 0])
@@ -138,7 +139,7 @@ ax[1, 0].set_title('(3) Embarked vs Survived')
 sns.countplot('Embarked', hue='Pclass', data=df_train, ax=ax[1, 1])
 ax[1, 1].set_title('(4) Embarked vs Pclass')
 plt.subplots_adjust(wspace=0.2, hspace=0.5)
-# plt.show()
+plt.show()
 
 # FamilySize 분석
 df_train['FamilySize'] = df_train['SibSp'] + df_train['Parch'] + 1
@@ -154,7 +155,7 @@ df_train[['FamilySize', 'Survived']].groupby(['FamilySize'], as_index=True).mean
     by="Survived", ascending=False).plot.bar(ax=ax[2])
 ax[2].set_title('(3) Survived rate depending on FamilySize', y=1.02)
 plt.subplots_adjust(wspace=0.2, hspace=0.5)
-# plt.show()
+plt.show()
 
 # Fare
 fig, ax = plt.subplots(1, 1, figsize=(8, 8))
@@ -162,3 +163,53 @@ g = sns.distplot(df_train['Fare'], color='b', label=f"Skewness : {df_train['Fare
 g = g.legend(loc='best')
 plt.show()
 
+df_test.loc[df_test.Fare.isnull(), 'Fare'] = df_test['Fare'].mean()
+
+df_train['Fare'] = df_train['Fare'].map(lambda i: np.log(i) if i > 0 else 0)
+df_test['Fare'] = df_test['Fare'].map(lambda i: np.log(i) if i > 0 else 0)
+
+fig, ax = plt.subplots(1, 1, figsize=(8, 8))
+g = sns.distplot(df_train['Fare'], color='b', label=f"Skewness: {df_train['Fare'].skew():.2f}", ax=ax)
+g = g.legend(loc='best')
+plt.show()
+
+# feature engineering을 통해서 모델이 좀 더 좋은 성능을 낼 수 있도록 한다.
+# Fill Null in Age
+df_train['Initial'] = 0
+for i in df_train:
+    df_train['Initial'] = df_train.Name.str.extract('([A-Za-z]+)\.')
+
+df_test['Initial'] = 0
+for i in df_test:
+    df_test['Initial'] = df_test.Name.str.extract('([A-Za-z]+)\.')
+
+print(pd.crosstab(df_train['Initial'], df_train['Sex']))
+
+df_train['Initial'].replace(['Mlle', 'Mme', 'Ms', 'Dr', 'Major', 'Lady', 'Countess', 'Jonkheer', 'Col', 'Rev', 'Capt', 'Sir', 'Don', 'Dona'],
+                            ['Miss', 'Miss', 'Miss', 'Mr', 'Mr', 'Mrs', 'Mrs', 'Other', 'Other', 'Other', 'Mr', 'Mr', 'Mr', 'Mr'], inplace=True)
+
+df_test['Initial'].replace(['Mlle', 'Mme', 'Ms', 'Dr', 'Major', 'Lady', 'Countess', 'Jonkheer', 'Col', 'Rev', 'Capt', 'Sir', 'Don', 'Dona'],
+                            ['Miss', 'Miss', 'Miss', 'Mr', 'Mr', 'Mrs', 'Mrs', 'Other', 'Other', 'Other', 'Mr', 'Mr', 'Mr', 'Mr'], inplace=True)
+
+print(df_train.groupby('Initial').mean())
+df_train.groupby('Initial')['Survived'].mean().plot.bar()
+plt.show()
+
+df_all = pd.concat([df_train, df_test])
+print(df_all.groupby('Initial').mean())
+
+df_train.loc[(df_train.Age.isnull()) & (df_train.Initial == 'Mr'), 'Age'] = 33
+df_train.loc[(df_train.Age.isnull()) & (df_train.Initial == 'Mrs'), 'Age'] = 37
+df_train.loc[(df_train.Age.isnull()) & (df_train.Initial == 'Master'), 'Age'] = 5
+df_train.loc[(df_train.Age.isnull()) & (df_train.Initial == 'Miss'), 'Age'] = 22
+df_train.loc[(df_train.Age.isnull()) & (df_train.Initial == 'Other'), 'Age'] = 45
+
+df_test.loc[(df_test.Age.isnull()) & (df_test.Initial == 'Mr'), 'Age'] = 33
+df_test.loc[(df_test.Age.isnull()) & (df_test.Initial == 'Mrs'), 'Age'] = 37
+df_test.loc[(df_test.Age.isnull()) & (df_test.Initial == 'Master'), 'Age'] = 5
+df_test.loc[(df_test.Age.isnull()) & (df_test.Initial == 'Miss'), 'Age'] = 22
+df_test.loc[(df_test.Age.isnull()) & (df_test.Initial == 'Other'), 'Age'] = 45
+
+# Fill Null in Embarked
+print('Embarked has', sum(df_train['Embarked'].isnull()), 'Null values')
+df_train['Embarked'].fillna('S', isplace=True)
