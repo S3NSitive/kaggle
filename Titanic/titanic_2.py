@@ -1,3 +1,4 @@
+import time
 import warnings
 import numpy as np
 import pandas as pd
@@ -10,7 +11,6 @@ from sklearn import metrics  # accuracy measure
 from sklearn.naive_bayes import GaussianNB  # Naive bayes
 from sklearn.metrics import confusion_matrix  # for confusion matrix
 from sklearn.tree import DecisionTreeClassifier  # Decision Tree
-from sklearn.model_selection import GridSearchCV
 from sklearn.neighbors import KNeighborsClassifier  # KNN
 from sklearn.ensemble import RandomForestClassifier  # Random forest
 from sklearn.linear_model import LogisticRegression  # logistic regression
@@ -18,8 +18,16 @@ from sklearn.model_selection import train_test_split  # training and testing dat
 
 # Cross Validation
 from sklearn.model_selection import KFold  # for K-fold cross validation
+from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import cross_val_score  # score evaluation
 from sklearn.model_selection import cross_val_predict  # prediction
+
+# Ensembling
+import xgboost as xg  # xgboost
+from sklearn.ensemble import VotingClassifier  # voting classifier
+from sklearn.ensemble import BaggingClassifier  # bagging
+from sklearn.ensemble import AdaBoostClassifier  # AdaBoosting
+from sklearn.ensemble import GradientBoostingClassifier  # Stochastic Gradient Boosting
 
 warnings.filterwarnings('ignore')
 plt.style.use('fivethirtyeight')
@@ -237,7 +245,7 @@ fig = plt.gcf()
 fig.set_size_inches(18, 15)
 plt.xticks(fontsize=14)
 plt.yticks(fontsize=14)
-plt.show()
+# plt.show()
 
 # Predictive Modeling
 train, test = train_test_split(data, test_size=0.3, random_state=0, stratify=data['Survived'])
@@ -291,7 +299,7 @@ plt.plot(a_index, a)
 plt.xticks(x)
 fig = plt.gcf()
 fig.set_size_inches(12, 6)
-plt.show()
+# plt.show()
 print(f"Accuracies for different values of n are: {a.values} with the max value as {a.values.max()}")
 
 # Gaussian Naive Bayes
@@ -328,15 +336,15 @@ print(new_models_dataframe2)
 plt.subplots(figsize=(18, 6))
 box = pd.DataFrame(accuracy, index=[classifiers])
 box.T.boxplot()
-plt.show()
+# plt.show()
 
 new_models_dataframe2['CV Mean'].plot.barh(width=0.8)
 plt.title('Average CV Mean Accuracy')
 fig = plt.gcf()
 fig.set_size_inches(8, 5)
-plt.show()
+# plt.show()
 
-# Hyper-Parameters Tuning
+# Hyper-Parameters Tuning (SVM)
 C = [0.05, 0.1, 0.2, 0.3, 0.25, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
 gamma = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
 kernel = ['rbf', 'linear']
@@ -345,3 +353,100 @@ gd = GridSearchCV(estimator=svm.SVC(), param_grid=hyper, verbose=True)
 gd.fit(X, Y)
 print(gd.best_score_)
 print(gd.best_estimator_)
+
+# Hyper-Parameters Tuning (Random Forest)
+n_estimators = range(100, 1000, 100)
+hyper = {'n_estimators': n_estimators}
+gd = GridSearchCV(estimator=RandomForestClassifier(random_state=0), param_grid=hyper, verbose=True, n_jobs=3)
+print(time)
+gd.fit(X, Y)
+print(gd.best_score_)
+print(gd.best_estimator_)
+
+# Ensembling (Voting Classifier)
+ensemble_lin_rbf = VotingClassifier(estimators=[('KNN', KNeighborsClassifier(n_neighbors=10)),
+                                                ('RBF', svm.SVC(probability=True, kernel='rbf', C=0.5, gamma=0.1)),
+                                                ('RFor', RandomForestClassifier(n_estimators=500, random_state=0)),
+                                                ('LR', LogisticRegression(C=0.05)),
+                                                ('DT', DecisionTreeClassifier(random_state=0)),
+                                                ('NB', GaussianNB()),
+                                                ('svm', svm.SVC(kernel='linear', probability=True))],
+                                    voting='soft').fit(train_X, train_Y)
+print(f"The accuracy for Ensemble model is {ensemble_lin_rbf.score(test_X, test_Y)}")
+cross = cross_val_score(ensemble_lin_rbf, X, Y, cv=10, scoring="accuracy")
+print(f"The cross validated score is {cross.mean()}")
+
+# Ensembling (Bagging)
+# Bagged KNN
+model = BaggingClassifier(base_estimator=KNeighborsClassifier(n_neighbors=3), random_state=0, n_estimators=700)
+model.fit(train_X, train_Y)
+prediction = model.predict(test_X)
+print(f"The accuracy for bagged KNN is {metrics.accuracy_score(prediction, test_Y)}")
+result = cross_val_score(model, X, Y, cv=10, scoring='accuracy')
+print(f"The cross validated score for bagged KNN is {result.mean()}")
+
+# Bagged Decision Tree
+model = BaggingClassifier(base_estimator=DecisionTreeClassifier(), random_state=0, n_estimators=100)
+model.fit(train_X, train_Y)
+prediction = model.predict(test_X)
+print(f"The accuracy for bagged Decision Tree is {metrics.accuracy_score(prediction, test_Y)}")
+result = cross_val_score(model, X, Y, cv=10, scoring='accuracy')
+print(f"The cross validated score for bagged Decision Tree is {result.mean()}")
+
+# AdaBoost(Adaptive Boosting)
+ada = AdaBoostClassifier(n_estimators=200, random_state=0, learning_rate=0.1)
+result = cross_val_score(ada, X, Y, cv=10, scoring='accuracy')
+print(f"The cross validated score for AdaBoost is {result.mean()}")
+
+# Stochastic Gradient Boosting
+grad = GradientBoostingClassifier(n_estimators=500, random_state=0, learning_rate=0.1)
+result = cross_val_score(grad, X, Y, cv=10, scoring='accuracy')
+print(f"The cross validated score for Gradient Boosting is {result.mean()}")
+
+# XGBoost
+xgboost = xg.XGBClassifier(n_estimators=900, learning_rate=0.1)
+result = cross_val_score(xgboost, X, Y, cv=10, scoring='accuracy')
+print(f"The cross validated score for XGBoost is {result.mean()}")
+
+# Hyper-Parameter Tuning (AdaBoost)
+n_estimators=list(range(100, 1000, 100))
+learn_rate = [0.05, 0.1, 0.2, 0.3, 0.25, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
+hyper = {'n_estimators': n_estimators, 'learning_rate': learn_rate}
+gd = GridSearchCV(estimator=AdaBoostClassifier(), param_grid=hyper, verbose=True, n_jobs=4)
+gd.fit(X, Y)
+print(gd.best_score_)
+print(gd.best_estimator_)
+
+# Hyper-Parameter Tuning (XGBoost)
+n_estimators=list(range(100, 1000, 100))
+learn_rate = [0.05, 0.1, 0.2, 0.3, 0.25, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
+hyper = {'n_estimators': n_estimators, 'learning_rate': learn_rate}
+gd = GridSearchCV(estimator=xg.XGBClassifier(), param_grid=hyper, verbose=True, n_jobs=4)
+gd.fit(X, Y)
+print(gd.best_score_)
+print(gd.best_estimator_)
+
+# Feature Importance
+f, ax = plt.subplots(2, 2, figsize=(15, 12))
+model = RandomForestClassifier(n_estimators=500, random_state=0)
+model.fit(X, Y)
+pd.Series(model.feature_importances_, X.columns).sort_values(ascending=True).plot.barh(width=0.8, ax=ax[0, 0])
+ax[0,0].set_title('Feature Importance in Random Forests')
+model = AdaBoostClassifier(n_estimators=200, learning_rate=0.05, random_state=0)
+model.fit(X, Y)
+pd.Series(model.feature_importances_, X.columns).sort_values(ascending=True).plot.barh(width=0.8, ax=ax[0, 1],
+                                                                                       color='#ddff11')
+ax[0,1].set_title('Feature Importance in AdaBoost')
+model = GradientBoostingClassifier(n_estimators=500, learning_rate=0.1, random_state=0)
+model.fit(X, Y)
+pd.Series(model.feature_importances_, X.columns).sort_values(ascending=True).plot.barh(width=0.8, ax=ax[1, 0],
+                                                                                       cmap='RdYlGn_r')
+ax[1,0].set_title('Feature Importance in Gradient Boosting')
+model = xg.XGBClassifier(n_estimators=100, learning_rate=0.9, random_state=0)
+model.fit(X, Y)
+pd.Series(model.feature_importances_, X.columns).sort_values(ascending=True).plot.barh(width=0.8, ax=ax[1, 1],
+                                                                                       color='#FD0F00')
+ax[1,1].set_title('Feature Importance in XgBoost')
+plt.show()
+
+
