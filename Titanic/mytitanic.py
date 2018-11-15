@@ -119,7 +119,30 @@ train['Initial'] = train['Initial'].map(Initial_mapping)
 test['Initial'] = test['Initial'].map(Initial_mapping)
 
 # Cabin
+train['Cabin'] = pd.Series([i[0] if not pd.isnull(i) else 'X' for i in train['Cabin']])
+test['Cabin'] = pd.Series([i[0] if not pd.isnull(i) else 'X' for i in test['Cabin']])
 
 
 # Ticket
+Ticket = []
+for i in list(train.Ticket):
+    if not i.isdigit():
+        Ticket.append(i.replace('.', '').replace('/', '').strip().split(' ')[0])
+    else:
+        Ticket.append('X')
 
+
+
+
+# Fare
+train['Fare'] = train['Fare'].map(lambda i: np.log(i) if i > 0 else 0)
+test['Fare'] = test['Fare'].map(lambda i: np.log(i) if i > 0 else 0)
+
+
+
+# One-hot encoding [Cabin, Embarked, Initial, Ticket]
+train = pd.get_dummies(train, columns=['Initial'], prefix='Initial')
+test = pd.get_dummies(test, columns=['Initial'], prefix='Initial')
+
+train = pd.get_dummies(train, columns=['Embarked'], prefix='Embarked')
+test = pd.get_dummies(test, columns=['Embarked'], prefix='Embarked')
