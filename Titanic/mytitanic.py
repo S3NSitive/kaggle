@@ -122,27 +122,40 @@ test['Initial'] = test['Initial'].map(Initial_mapping)
 train['Cabin'] = pd.Series([i[0] if not pd.isnull(i) else 'X' for i in train['Cabin']])
 test['Cabin'] = pd.Series([i[0] if not pd.isnull(i) else 'X' for i in test['Cabin']])
 
-
 # Ticket
-Ticket = []
-for i in list(train.Ticket):
-    if not i.isdigit():
-        Ticket.append(i.replace('.', '').replace('/', '').strip().split(' ')[0])
+for i in range(train.shape[0]):
+    if not train['Ticket'][i].isdigit():
+        train['Ticket'][i] = train['Ticket'][i].replace('.', '').replace('/', '').strip().split(' ')[0]
     else:
-        Ticket.append('X')
+        train['Ticket'][i] = 'X'
 
-
-
+for i in range(test.shape[0]):
+    if not test['Ticket'][i].isdigit():
+        test['Ticket'][i] = test['Ticket'][i].replace('.', '').replace('/', '').strip().split(' ')[0]
+    else:
+        test['Ticket'][i] = 'X'
 
 # Fare
 train['Fare'] = train['Fare'].map(lambda i: np.log(i) if i > 0 else 0)
 test['Fare'] = test['Fare'].map(lambda i: np.log(i) if i > 0 else 0)
 
-
-
-# One-hot encoding [Cabin, Embarked, Initial, Ticket]
+# One-hot encoding [Cabin, Embarked, Initial, Ticket, Pclass]
 train = pd.get_dummies(train, columns=['Initial'], prefix='Initial')
 test = pd.get_dummies(test, columns=['Initial'], prefix='Initial')
 
 train = pd.get_dummies(train, columns=['Embarked'], prefix='Embarked')
 test = pd.get_dummies(test, columns=['Embarked'], prefix='Embarked')
+
+train = pd.get_dummies(train, columns=['Ticket'], prefix='Ticket')
+test = pd.get_dummies(test, columns=['Ticket'], prefix='Ticket')
+
+train = pd.get_dummies(train, columns=['Cabin'], prefix='Cabin')
+test = pd.get_dummies(test, columns=['Cabin'], prefix='Cabin')
+
+train = pd.get_dummies(train, columns=['Pclass'], prefix='Pclass')
+test = pd.get_dummies(test, columns=['Pclass'], prefix='Pclass')
+
+# drop
+drop_category = ['SibSp', 'Parch', 'Name', 'PassengerId', 'Age']
+train.drop('SibSp', 'Parch', 'Name', 'PassengerId', 'Age')
+print(train.columns)
