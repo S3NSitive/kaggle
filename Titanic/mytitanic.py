@@ -82,7 +82,6 @@ test['Initial'].replace(['Mlle', 'Mme', 'Ms', 'Dr', 'Major', 'Lady', 'Countess',
                          'Other', 'Other', 'Other', 'Mr', 'Mr', 'Mr', 'Mr'], inplace=True)
 
 dataset = pd.concat([train, test], axis=0)
-# print(dataset.groupby('Initial').mean())
 
 train.loc[(train['Age'].isnull()) & (train['Initial'] == 'Master'), 'Age'] = 5
 train.loc[(train['Age'].isnull()) & (train['Initial'] == 'Miss'), 'Age'] = 22
@@ -118,6 +117,8 @@ def category_age(x):
 
 train['Age_cat'] = 0
 train['Age_cat'] = train['Age_cat'].apply(category_age)
+test['Age_cat'] = 0
+test['Age_cat'] = test['Age_cat'].apply(category_age)
 
 Initial_mapping = {'Master': 0, 'Miss': 1, 'Mr': 2, 'Mrs': 3, 'Other': 4}
 train['Initial'] = train['Initial'].map(Initial_mapping)
@@ -151,11 +152,11 @@ test = pd.get_dummies(test, columns=['Initial'], prefix='Initial')
 train = pd.get_dummies(train, columns=['Embarked'], prefix='Embarked')
 test = pd.get_dummies(test, columns=['Embarked'], prefix='Embarked')
 
-train = pd.get_dummies(train, columns=['Ticket'], prefix='Ticket')
-test = pd.get_dummies(test, columns=['Ticket'], prefix='Ticket')
-
-train = pd.get_dummies(train, columns=['Cabin'], prefix='Cabin')
-test = pd.get_dummies(test, columns=['Cabin'], prefix='Cabin')
+# train = pd.get_dummies(train, columns=['Ticket'], prefix='Ticket')
+# test = pd.get_dummies(test, columns=['Ticket'], prefix='Ticket')
+#
+# train = pd.get_dummies(train, columns=['Cabin'], prefix='Cabin')
+# test = pd.get_dummies(test, columns=['Cabin'], prefix='Cabin')
 
 train = pd.get_dummies(train, columns=['Pclass'], prefix='Pclass')
 test = pd.get_dummies(test, columns=['Pclass'], prefix='Pclass')
@@ -163,13 +164,14 @@ test = pd.get_dummies(test, columns=['Pclass'], prefix='Pclass')
 # drop
 drop_category = ['SibSp', 'Parch', 'Name', 'PassengerId', 'Age']
 train.drop(labels=drop_category, axis=1, inplace=True)
-# print(train.columns)
-
+test.drop(labels=drop_category, axis=1, inplace=True)
 # Modeling
 y_train = train['Survived']
 X_train = train.drop(labels=['Survived'], axis=1)
 random_state = 2
 kfold = StratifiedKFold(n_splits=5, shuffle=True)
+print(X_train.columns)
+print(test.columns)
 
 classifiers = []
 classifiers.append(SVC(random_state=random_state))
@@ -187,7 +189,7 @@ classifiers.append(xg.XGBClassifier(random_state=random_state))
 
 cv_results = []
 for classifier in classifiers:
-    cv_results.append(cross_val_score(classifier, X_train, y=y_train, scoring='accuracy', cv=kfold, n_jobs=4))
+    cv_results.append(cross_val_score(classifier, X_train, y=y_train, scoring='accuracy', cv=kfold, n_jobs=1))
 
 cv_means = []
 cv_std = []
@@ -227,7 +229,7 @@ SVMC = SVC(probability=True)
 SVMC_params = {'kernel': ['rbf'],
                'gamma': gamma,
                'C': C}
-gsSVMC = GridSearchCV(SVMC, param_grid=SVMC_params, cv=kfold, scoring='accuracy', verbose=1, n_jobs=4)
+gsSVMC = GridSearchCV(SVMC, param_grid=SVMC_params, cv=kfold, scoring='accuracy', verbose=1, n_jobs=1)
 gsSVMC.fit(X_train, y_train)
 SVMC_best_estimator = gsSVMC.best_estimator_
 SVMC_best_score = gsSVMC.best_score_
@@ -244,7 +246,7 @@ ExtC_params = {'max_depth': [None],
                'n_estimators': n_estimators,
                'criterion': ['gini']}
 
-gsExtC = GridSearchCV(ExtC, param_grid=ExtC_params, cv=kfold, scoring='accuracy', verbose=1, n_jobs=4)
+gsExtC = GridSearchCV(ExtC, param_grid=ExtC_params, cv=kfold, scoring='accuracy', verbose=1, n_jobs=1)
 gsExtC.fit(X_train, y_train)
 ExtC_best_estimator = gsExtC.best_estimator_
 ExtC_best_score = gsExtC.best_score_
@@ -261,7 +263,7 @@ RFC_params = {'max_depth': [None],
               'n_estimators': n_estimators,
               'criterion': ['gini']}
 
-gsRFC = GridSearchCV(RFC, param_grid=RFC_params, cv=kfold, scoring='accuracy', verbose=1, n_jobs=4)
+gsRFC = GridSearchCV(RFC, param_grid=RFC_params, cv=kfold, scoring='accuracy', verbose=1, n_jobs=1)
 gsRFC.fit(X_train, y_train)
 RFC_best_estimator = gsRFC.best_estimator_
 RFC_best_score = gsRFC.best_score_
@@ -277,7 +279,7 @@ Ada_params = {'base_estimator__criterion': ['gini', 'entropy'],
               'n_estimators': n_estimators,
               'learning_rate': learning_rate}
 
-gsAdaDTC = GridSearchCV(AdaDTC, param_grid=Ada_params, cv=kfold, scoring='accuracy', verbose=1, n_jobs=4)
+gsAdaDTC = GridSearchCV(AdaDTC, param_grid=Ada_params, cv=kfold, scoring='accuracy', verbose=1, n_jobs=1)
 gsAdaDTC.fit(X_train, y_train)
 Ada_best_estimator = gsAdaDTC.best_estimator_
 Ada_best_score = gsAdaDTC.best_score_
@@ -293,7 +295,7 @@ GBC_params = {'loss': ['deviance'],
               'n_estimators': n_estimators,
               'learning_rate': learning_rate}
 
-gsGBC = GridSearchCV(GBC, param_grid=GBC_params, cv=kfold, scoring='accuracy', verbose=1, n_jobs=4)
+gsGBC = GridSearchCV(GBC, param_grid=GBC_params, cv=kfold, scoring='accuracy', verbose=1, n_jobs=1)
 gsGBC.fit(X_train, y_train)
 GBC_best_estimator = gsGBC.best_estimator_
 GBC_best_score = gsGBC.best_score_
@@ -309,7 +311,7 @@ XGBC_params = {'max_depth': max_depth,
                'n_estimators': n_estimators,
                'learning_rate': learning_rate}
 
-gsXGBC = GridSearchCV(XGBC, param_grid=XGBC_params, cv=kfold, scoring='accuracy', verbose=1, n_jobs=4)
+gsXGBC = GridSearchCV(XGBC, param_grid=XGBC_params, cv=kfold, scoring='accuracy', verbose=1, n_jobs=1)
 gsXGBC.fit(X_train, y_train)
 XGBC_best_estimator = gsXGBC.best_estimator_
 XGBC_best_score = gsXGBC.best_score_
@@ -317,17 +319,17 @@ best_estimators.append(XGBC_best_estimator)
 best_scores.append(XGBC_best_score)
 print('XGBC Clear')
 
-tuning_res = pd.DataFrame({'best_estimator': best_estimators, 'best_score': best_scores,
-                            'Algorithm': ['SVC', 'ExtraTreesClassifier', 'RandomForest',
-                                          'AdaBoost', 'GradientBoost', 'XGBoost']})
-print(tuning_res)
+# tuning_res = pd.DataFrame({'best_estimator': best_estimators, 'best_score': best_scores,
+#                             'Algorithm': ['SVC', 'ExtraTreesClassifier', 'RandomForest',
+#                                           'AdaBoost', 'GradientBoost', 'XGBoost']})
+# print(tuning_res)
 
-votingC = VotingClassifier(estimators=[('RFC', RFC_best_estimator),
+votingC = VotingClassifier(estimators=[('SVM', SVMC_best_estimator),
                                        ('ExtC', ExtC_best_estimator),
-                                       ('SVMC', SVMC_best_estimator),
+                                       ('RFC', RFC_best_estimator),
                                        ('Ada', Ada_best_estimator),
                                        ('GBC', GBC_best_estimator),
-                                       ('XGBC', XGBC_best_estimator)],
+                                       ('XGB', XGBC_best_estimator)],
                            voting='soft')
 votingC = votingC.fit(X_train, y_train)
 
