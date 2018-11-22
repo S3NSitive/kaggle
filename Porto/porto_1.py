@@ -9,6 +9,7 @@
 기법이 발견되길 기대하고 있다. 보다 정확한 예측 모델은 운전자에게 합리적인 가격을 제공하고, 더 많은 운전자들이 자동차 보험의 혜택을
 받을 수 있게 도와줄 것이다.
 """
+import warnings
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -17,10 +18,12 @@ import matplotlib.pyplot as plt
 from sklearn.utils import shuffle
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import Imputer
-from sklearn.preprocessing import PolynomialFeatures
 from sklearn.preprocessing import StandardScaler
-from sklearn.feature_selection import VarianceThreshold
+from sklearn.preprocessing import PolynomialFeatures
 from sklearn.feature_selection import SelectFromModel
+from sklearn.feature_selection import VarianceThreshold
+
+warnings.filterwarnings('ignore')
 
 train = pd.read_csv('./data/train.csv')
 test = pd.read_csv('./data/test.csv')
@@ -129,7 +132,7 @@ v = meta[(meta.level == 'nominal') & meta.keep].index
 
 for f in v:
     dist_values = train[f].value_counts().shape[0]
-    print(f"Variable {f} has {dist_values} distinct values")
+    # print(f"Variable {f} has {dist_values} distinct values")
 
 
 def add_noise(series, noise_level):
@@ -228,4 +231,38 @@ train = pd.concat([train, interactions], axis=1)
 
 # Feature selection
 # Removing features with low or zero variance
+selector = VarianceThreshold(threshold=.01)
+selector.fit(train.drop(['id', 'target'], axis=1))
 
+f = np.vectorize(lambda x: not x)
+
+v = train.drop(['id', 'target'], axis=1).columns[f(selector.get_support())]
+# print('{} variables have too low variance.'.format(len(v)))
+# print('These variables are {}'.format(list(v)))
+
+X_train = train.drop(['id', 'target'], axis=1)
+y_train = train['target']
+
+feat_labels = X_train.columns
+
+rf = RandomForestClassifier(n_estimators=1000, random_state=0, n_jobs=4)
+rf.fit(X_train, y_train)
+importance = rf.feature_importances_
+
+indices = np.argsort(rf.feature_importances_)[::-1]
+
+for f in range(X_train.shape[1]):
+    print("%2d) %-*s %f" % (f+1, 30, feat_labels[indices[f]], importance[indices[f]]))
+
+sfm = SelectFromModel(rf, threshold='median', prefit=True)
+print(f"Number of features before selection: {X_train.shape[1]}")
+n_features = sfm.transform(X_train).shape[1]
+print(f"Number of features after selection: {n_features}")
+selected_vars = list(feat_labels[sfm.get_support()])
+
+train = train[selected_vars + ['target']]
+
+scaler = StandardScaler()
+scaler.fit_transform(train.drop(['target'], axis=1))
+
+print(train)
