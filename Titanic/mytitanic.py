@@ -165,6 +165,7 @@ test = pd.get_dummies(test, columns=['Pclass'], prefix='Pclass')
 drop_category = ['SibSp', 'Parch', 'Name', 'PassengerId', 'Age']
 train.drop(labels=drop_category, axis=1, inplace=True)
 test.drop(labels=drop_category, axis=1, inplace=True)
+
 # Modeling
 y_train = train['Survived']
 X_train = train.drop(labels=['Survived'], axis=1)
