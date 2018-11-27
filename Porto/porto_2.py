@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 
 from collections import Counter
 from sklearn.feature_selection import mutual_info_classif
+from sklearn.ensemble import RandomForestClassifier
 
 warnings.filterwarnings('ignore')
 
@@ -84,4 +85,62 @@ layout = go.Layout(barmode='stack',
                    title='Count of 1 and 0 in binary variables')
 
 fig = go.Figure(data=data, layout=layout)
-py.plot(fig, filename='./data/stacked-bar')
+# py.plot(fig, filename='./data/stacked-bar')
+
+# Feature importance via Random Forest
+X_train = train.drop(["id", "target"], axis=1)
+y_train = train["target"]
+
+rf = RandomForestClassifier(n_estimators=150, max_depth=8, min_samples_leaf=4,
+                            max_features=0.2, n_jobs=1, random_state=0)
+rf.fit(X_train, y_train)
+features = X_train.columns.values
+print("----- Training Done -----")
+
+trace = go.Scatter(y=rf.feature_importances_,
+                   x=features,
+                   mode="markers",
+                   marker=dict(sizemode="diameter",
+                               sizeref=1,
+                               size=13,
+                               color=rf.feature_importances_,
+                               colorscale="Portland",
+                               showscale=True),
+                   text=features)
+data = [trace]
+
+layout = go.Layout(autosize=True,
+                   title="Random Forest Feature Importance",
+                   hovermode="closest",
+                   xaxis=dict(ticklen=5,
+                              showgrid=False,
+                              zeroline=False,
+                              showline=False),
+                   yaxis=dict(title="Feature Importance",
+                              showgrid=False,
+                              zeroline=False,
+                              ticklen=5,
+                              gridwidth=2),
+                   showlegend=False)
+fig = go.Figure(data=data, layout=layout)
+# py.plot(fig, filename='./data/scatter2010')
+
+x, y = (list(x) for x in zip(*sorted(zip(rf.feature_importances_, features), reverse=False)))
+trace2 = go.Bar(x=x,
+                y=y,
+                marker=dict(color=x,
+                            colorscale="Viridis",
+                            reversescale=True),
+                name="Random Forest Feature importance",
+                orientation="h")
+
+layout = dict(title="Barplot of Feature importances",
+              width=900,
+              height=2000,
+              yaxis=dict(showgrid=False,
+                         showline=False,
+                         showticklabels=True))
+
+fig1 = go.Figure(data=[trace2])
+fig1["layout"].update(layout)
+py.plot(fig1, filename="plots")
