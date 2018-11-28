@@ -1,3 +1,4 @@
+import re
 import warnings
 import numpy as np
 import pandas as pd
@@ -8,9 +9,14 @@ import plotly.offline as py
 import plotly.graph_objs as go
 import matplotlib.pyplot as plt
 
+from PIL import Image, ImageDraw, ImageFont
+from subprocess import check_call
 from collections import Counter
-from sklearn.feature_selection import mutual_info_classif
+from IPython.display import Image as PImage
+from sklearn import tree
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.feature_selection import mutual_info_classif
 
 warnings.filterwarnings('ignore')
 
@@ -143,4 +149,78 @@ layout = dict(title="Barplot of Feature importances",
 
 fig1 = go.Figure(data=[trace2])
 fig1["layout"].update(layout)
-py.plot(fig1, filename="plots")
+# py.plot(fig1, filename="plots")
+
+decision_tree = tree.DecisionTreeClassifier(max_depth=3)
+decision_tree.fit(X_train, y_train)
+
+with open("tree1.dot", 'w') as f:
+    f = tree.export_graphviz(decision_tree,
+                             out_file=f,
+                             max_depth=4,
+                             impurity=False,
+                             feature_names=X_train.columns.values,
+                             class_names=["No", "Yes"],
+                             rounded=True,
+                             filled=True)
+
+check_call(["dot", "-Tpng", "tree1.dot", "-o", "tree1.png"])
+
+img = Image.open("tree1.png")
+draw = ImageDraw.Draw(img)
+img.save("sample-out.png")
+PImage("sample_out.png")
+
+# Feature importance via Gradient Boosting model
+gb = GradientBoostingClassifier(n_estimators=100, max_depth=3, min_samples_leaf=4, max_features=0.2, random_state=0)
+gb.fit(X_train, y_train)
+features = X_train.columns.values
+print("----- Training Done -----")
+
+trace = go.Scatter(y=gb.feature_importances_,
+                   x=features,
+                   mode="markers",
+                   marker=dict(sizemode="diameter",
+                               sizeref=1,
+                               size=13,
+                               color=gb.feature_importances_,
+                               colorscale="Portland",
+                               showscale=True),
+                   text=features)
+
+data = [trace]
+layout = go.Layout(autosize=True,
+                   title="Gradient Boosting Machine Feature Importance",
+                   hovermode="closest",
+                   xaxis=dict(ticklen=5,
+                              showgrid=False,
+                              zeroline=False,
+                              showline=False),
+                   yaxis=dict(title="Feature Importance",
+                              showgrid=False,
+                              zeroline=False,
+                              ticklen=5,
+                              gridwidth=2),
+                   showlegend=False)
+fig = go.Figure(data=data, layout=layout)
+py.plot(fig, filename="data/scatter2010")
+
+x, y = (list(x) for x in zip(*sorted(zip(gb.feature_importances_, features), reverse=False)))
+trace2 = go.Bar(x=x,
+                y=y,
+                marker=dict(color=x,
+                            colorscale="Viridis",
+                            reversescale=True),
+                name="Gradient Boosting Classifer Feature importance",
+                orientation="h")
+
+layout = dict(title="Barplot of Feature importances",
+              width=900,
+              height=2000,
+              yaxis=dict(showgrid=False,
+                         showline=False,
+                         showticklabels=True))
+
+fig1 = go.Figure(data=[trace2])
+fig1["layout"].update(layout)
+py.plot(fig1, filename="data/plots")
