@@ -4,6 +4,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 from collections import OrderedDict
+from collections import Counter
 
 plt.style.use("fivethirtyeight")
 plt.rcParams["font.size"] = 18
@@ -226,3 +227,88 @@ plot_categoricals("rez_esc", "Target", data)
 plot_categoricals("escolari", "Target", data, annotate=False)
 plot_value_counts(data[(data["rez_esc-missing"] == 1)], "Target")
 plot_value_counts(data[(data["v2a1-missing"] == 1)], "Target")
+
+id_ = ['Id', 'idhogar', 'Target']
+ind_bool = ['v18q', 'dis', 'male', 'female', 'estadocivil1', 'estadocivil2', 'estadocivil3',
+            'estadocivil4', 'estadocivil5', 'estadocivil6', 'estadocivil7',
+            'parentesco1', 'parentesco2',  'parentesco3', 'parentesco4', 'parentesco5',
+            'parentesco6', 'parentesco7', 'parentesco8',  'parentesco9', 'parentesco10',
+            'parentesco11', 'parentesco12', 'instlevel1', 'instlevel2', 'instlevel3',
+            'instlevel4', 'instlevel5', 'instlevel6', 'instlevel7', 'instlevel8',
+            'instlevel9', 'mobilephone', 'rez_esc-missing']
+ind_ordered = ['rez_esc', 'escolari', 'age']
+hh_bool = ['hacdor', 'hacapo', 'v14a', 'refrig', 'paredblolad', 'paredzocalo',
+           'paredpreb','pisocemento', 'pareddes', 'paredmad',
+           'paredzinc', 'paredfibras', 'paredother', 'pisomoscer', 'pisoother',
+           'pisonatur', 'pisonotiene', 'pisomadera',
+           'techozinc', 'techoentrepiso', 'techocane', 'techootro', 'cielorazo',
+           'abastaguadentro', 'abastaguafuera', 'abastaguano',
+            'public', 'planpri', 'noelec', 'coopele', 'sanitario1',
+           'sanitario2', 'sanitario3', 'sanitario5',   'sanitario6',
+           'energcocinar1', 'energcocinar2', 'energcocinar3', 'energcocinar4',
+           'elimbasu1', 'elimbasu2', 'elimbasu3', 'elimbasu4',
+           'elimbasu5', 'elimbasu6', 'epared1', 'epared2', 'epared3',
+           'etecho1', 'etecho2', 'etecho3', 'eviv1', 'eviv2', 'eviv3',
+           'tipovivi1', 'tipovivi2', 'tipovivi3', 'tipovivi4', 'tipovivi5',
+           'computer', 'television', 'lugar1', 'lugar2', 'lugar3',
+           'lugar4', 'lugar5', 'lugar6', 'area1', 'area2', 'v2a1-missing']
+hh_ordered = ['rooms', 'r4h1', 'r4h2', 'r4h3', 'r4m1','r4m2','r4m3', 'r4t1',  'r4t2',
+              'r4t3', 'v18q1', 'tamhog','tamviv','hhsize','hogar_nin',
+              'hogar_adul','hogar_mayor','hogar_total',  'bedrooms', 'qmobilephone']
+hh_cont = ['v2a1', 'dependency', 'edjefe', 'edjefa', 'meaneduc', 'overcrowding']
+sqr_ = ['SQBescolari', 'SQBage', 'SQBhogar_total', 'SQBedjefe',
+        'SQBhogar_nin', 'SQBovercrowding', 'SQBdependency', 'SQBmeaned', 'agesq']
+
+x = ind_bool + ind_ordered + id_ + hh_bool + hh_ordered + hh_cont + sqr_
+
+print(f"There are no repeats: {np.all(np.array(list(Counter(x).values())) == 1)}")
+print(f"We covered every variable: {len(x) == data.shape[1]}")
+
+sns.lmplot("age", "SQBage", data=data, fit_reg=False)
+plt.title("Squared Age versus Age")
+plt.show()
+
+data = data.drop(columns=sqr_)
+print(data.shape)
+
+heads = data.loc[data["parentesco1"] == 1, :]
+heads = heads[id_ + hh_bool + hh_cont + hh_ordered]
+print(heads.shape)
+
+corr_matrix = heads.corr()
+upper = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(np.bool))
+to_drop = [column for column in upper.columns if any(abs(upper[column]) > 0.95)]
+print(to_drop)
+
+print(corr_matrix.loc[corr_matrix["tamhog"].abs() > 0.9, corr_matrix["tamhog"].abs() > 0.9])
+sns.heatmap(corr_matrix.loc[corr_matrix["tamhog"].abs() > 0.9, corr_matrix["tamhog"].abs() > 0.9],
+            annot=True, cmap=plt.cm.autumn_r, fmt=".3f")
+plt.show()
+
+heads = heads.drop(columns=["tamhog", "hogar_total", "r4t3"])
+sns.lmplot("tamviv", "hhsize", data, fit_reg=False, size=8)
+plt.title("Household size vs number of persons living in the household")
+plt.show()
+
+heads["hhsize-diff"] = heads["tamviv"] - heads["hhsize"]
+plot_categoricals("hhsize-diff", "Target", heads)
+
+corr_matrix.loc[corr_matrix["coopele"].abs() > 0.9, corr_matrix["coopele"].abs() > 0.9]
+
+elec = []
+for i, row in heads.iterrows():
+    if row["noelec"] == 1:
+        elec.append(0)
+    elif row["coopele"] == 1:
+        elec.append(1)
+    elif row["public"] == 1:
+        elec.append(0)
+    elif row["planpri"] == 1:
+        elec.append(0)
+    else:
+        elec.append(np.nan)
+
+heads["elec"] = elec
+heads["elec-missing"] = heads["elec"].isnull()
+
+plot_categoricals("elec", "Target", heads)
