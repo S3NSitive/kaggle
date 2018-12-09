@@ -1,10 +1,14 @@
+import warnings
 import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-from collections import OrderedDict
+from scipy.stats import spearmanr
 from collections import Counter
+from collections import OrderedDict
+
+warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 plt.style.use("fivethirtyeight")
 plt.rcParams["font.size"] = 18
@@ -15,9 +19,9 @@ pd.options.display.max_columns = 150
 # Read in data
 train = pd.read_csv("data/train.csv")
 test = pd.read_csv("data/test.csv")
-# print(train.head())
+print(train.head())
 
-# print(train.info())
+print(train.info())
 
 # Integer Columns
 # print(train.select_dtypes(np.int64).nunique().value_counts().sort_index())
@@ -28,7 +32,7 @@ train.select_dtypes(np.int64).nunique().value_counts().sort_index().plot.bar(col
 plt.xlabel("Number of Unique values")
 plt.ylabel("Count")
 plt.title("Count of unique values in integer columns")
-# plt.show()
+plt.show()
 
 # Float Columns
 plt.figure(figsize=(20, 16))
@@ -50,10 +54,10 @@ for i, col in enumerate(train.select_dtypes("float")):
     plt.ylabel("Density")
 
 plt.subplots_adjust(top=2)
-# plt.show()
+plt.show()
 
 # Object Columns
-# print(train.select_dtypes("object").head())
+print(train.select_dtypes("object").head())
 
 mapping = {"yes": 1, "no": 0}
 
@@ -62,7 +66,7 @@ for df in [train, test]:
     df["edjefa"] = df["edjefa"].replace(mapping).astype(np.float64)
     df["edjefe"] = df["edjefe"].replace(mapping).astype(np.float64)
 
-# print(train[["dependency", "edjefa", "edjefe"]].describe())
+print(train[["dependency", "edjefa", "edjefe"]].describe())
 
 plt.figure(figsize=(16, 12))
 
@@ -79,7 +83,7 @@ for i, col in enumerate(["dependency", "edjefa", "edjefe"]):
     plt.ylabel("Density")
 
 plt.subplots_adjust(top=2)
-# plt.show()
+plt.show()
 
 test["Target"] = np.nan
 data = train.append(test, ignore_index=True)
@@ -96,9 +100,9 @@ plt.xlabel("Poverty Level")
 plt.ylabel("Count")
 plt.xticks([x - 1 for x in poverty_mapping.keys()], list(poverty_mapping.values()), rotation=60)
 plt.title("Poverty Level Breakdown")
-# plt.show()
+plt.show()
 
-# print(label_counts)
+print(label_counts)
 
 # Addressing Wrong Labels
 # Identify Errors
@@ -106,7 +110,7 @@ all_equal = train.groupby("idhogar")["Target"].apply(lambda x: x.nunique() == 1)
 not_equal = all_equal[all_equal != True]
 
 print(f"There are {len(not_equal)} households where the family members do not all have the same target.")
-# print(train[train["idhogar"] == not_equal.index[0]][["idhogar", "parentesco1", "Target"]])
+print(train[train["idhogar"] == not_equal.index[0]][["idhogar", "parentesco1", "Target"]])
 
 # Families without Heads of Household
 households_leader = train.groupby("idhogar")["parentesco1"].sum()
@@ -312,3 +316,121 @@ heads["elec"] = elec
 heads["elec-missing"] = heads["elec"].isnull()
 
 plot_categoricals("elec", "Target", heads)
+
+heads = heads.drop(columns="area2")
+print(heads.groupby("area1")["Target"].value_counts(normalize=True))
+
+heads["walls"] = np.argmax(np.array(heads[["epared1", "epared2", "epared3"]]), axis=1)
+plot_categoricals("walls", "Target", heads)
+
+heads["roof"] = np.argmax(np.array(heads[["etecho1", "etecho2", "etecho3"]]), axis=1)
+heads = heads.drop(columns=["etecho1", "etecho2", "etecho3"])
+heads["floor"] = np.argmax(np.array(heads[["eviv1", "eviv2", "eviv3"]]), axis=1)
+
+# Feature Construction
+heads["walls+roof+floor"] = heads["walls"] + heads["roof"] + heads["floor"]
+plot_categoricals("walls+roof+floor", "Target", heads, annotate=False)
+
+counts = pd.DataFrame(heads.groupby(["walls+roof+floor"])["Target"].value_counts(normalize=True))\
+    .rename(columns={"Target": "Normalized Count"}).reset_index()
+print(counts.head())
+
+heads["warning"] = 1 * (heads["sanitario1"] + (heads["elec"] == 0) + heads["pisonotiene"]
+                        + heads["abastaguano"] + (heads["cielorazo"] == 0))
+
+plt.figure(figsize=(10, 6))
+sns.violinplot(x="warning", y="Target", data=heads)
+plt.title("Target vs Warning Variable")
+plt.show()
+
+plot_categoricals("warning", "Target", data=heads)
+
+heads["bonus"] = 1 * (heads["refrig"] + heads["computer"] + (heads["v18q1"] > 0) + heads["television"])
+sns.violinplot(x="bonus", y="Target", data=heads)
+plt.title('Target vs Bonus Variable')
+plt.show()
+
+# Per Capita Feature
+heads["phone-per-capita"] = heads["qmobilephone"] / heads["tamviv"]
+heads["tablets-per-capita"] = heads["v18q1"] / heads["tamviv"]
+heads["rooms-per-capita"] = heads["rooms"] / heads["tamviv"]
+heads["rent-per-capita"] = heads["v2a1"] / heads["tamviv"]
+
+
+def plot_corrs(x, y):
+    spr = spearmanr(x, y).correlation
+    pcr = np.corrcoef(x, y)[0, 1]
+
+    data = pd.DataFrame({"x": x, "y": y})
+    plt.figure(figsize=(6, 4))
+    sns.regplot("x", "y", data=data, fit_reg=False)
+    plt.title(f"Spearman: {round(spr, 2)}; Pearson: {round(pcr, 2)}")
+    plt.show()
+
+
+x = np.array(range(100))
+y = x ** 2
+plot_corrs(x, y)
+
+x = np.array([1, 1, 1, 2, 3, 3, 4, 4, 4, 5, 5, 6, 7, 8, 8, 9, 9, 9])
+y = np.array([1, 2, 1, 1, 1, 1, 2, 2, 2, 2, 1, 3, 3, 2, 4, 2, 2, 4])
+plot_corrs(x, y)
+
+x = np.array(range(-19, 20))
+y = 2 * np.sin(x)
+plot_corrs(x, y)
+
+# Pearson
+train_heads = heads.loc[heads["Target"].notnull(), :].copy()
+
+pcorrs = pd.DataFrame(train_heads.corr()["Target"].sort_values()).rename(columns={"Target": "pcorr"}).reset_index()
+pcorrs = pcorrs.rename(columns={"index": "feature"})
+
+print("Most negatively correlated variables:")
+print(pcorrs.head())
+print("\nMost positively correlated varibales:")
+print(pcorrs.dropna().tail())
+
+# Spearman
+feats = []
+scorr = []
+pvalues = []
+
+for c in heads:
+    if heads[c].dtype != "object":
+        feats.append(c)
+
+        scorr.append(spearmanr(train_heads[c], train_heads["Target"]).correlation)
+        pvalues.append(spearmanr(train_heads[c], train_heads["Target"]).pvalue)
+
+scorrs = pd.DataFrame({"feature": feats, "scorr": scorr, "pvalue": pvalues}).sort_values("scorr")
+
+print('Most negative Spearman correlations:')
+print(scorrs.head())
+print('\nMost positive Spearman correlations:')
+print(scorrs.dropna().tail())
+
+corrs = pcorrs.merge(scorrs, on="feature")
+corrs["diff"] = corrs["pcorr"] - corrs["scorr"]
+
+print(corrs.sort_values("diff").head())
+print(corrs.sort_values("diff").dropna().tail())
+
+sns.lmplot(x="dependency", y="Target", fit_reg=True, data=train_heads, x_jitter=0.05, y_jitter=0.05)
+plt.title("Target vs Dependency")
+plt.show()
+
+sns.lmplot(x="rooms-per-capita", y="Target", fit_reg=True, data=train_heads, x_jitter=0.05, y_jitter=0.05)
+plt.title("Target vs rooms-per-capita")
+plt.show()
+
+variables = ["Target", "dependency", "warning", "walls+roof+floor", "meaneduc", "floor", "r4m1", "overcrowding"]
+corr_mat = train_heads[variables].corr().round(2)
+
+plt.rcParams["font.size"] = 18
+plt.figure(figsize=(12, 12))
+sns.heatmap(corr_mat, vmin=-0.5, vmax=0.8, center=0, cmap=plt.cm.RdYlGn_r, annot=True)
+plt.show()
+
+
+
