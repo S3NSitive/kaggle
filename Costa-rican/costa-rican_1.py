@@ -432,5 +432,133 @@ plt.figure(figsize=(12, 12))
 sns.heatmap(corr_mat, vmin=-0.5, vmax=0.8, center=0, cmap=plt.cm.RdYlGn_r, annot=True)
 plt.show()
 
+warnings.filterwarnings("ignore")
+"""
+plot_data = train_heads[["Target", "dependency", "walls+roof+floor", "meaneduc", "overcrowding"]]
 
+grid = sns.PairGrid(data=plot_data, size=4, diag_sharey=False, hue="Target", hue_order=[4, 3, 2, 1],
+                    vars=[x for x in list(plot_data.columns) if x != "Target"])
+grid.map_upper(plt.scatter, alpha=0.8, s=20)
+grid.map_diag(sns.kdeplot)
+grid.map_lower(sns.kdeplot, cmap=plt.cm.OrRd_r)
+grid = grid.add_legend()
+plt.suptitle('Feature Plots Colored By Target', size=32, y=1.05)
+plt.show()
+"""
+
+household_feats = list(heads.columns)
+
+# Individual Level Variables
+ind = data[id_ + ind_bool + ind_ordered]
+print(ind.shape)
+
+corr_matrix = ind.corr()
+upper = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(np.bool))
+to_drop = [column for column in upper.columns if any(abs(upper[column]) > 0.95)]
+print(to_drop)
+
+ind = data.drop(columns="male")
+
+print(ind[[c for c in ind if c.startswith("instl")]].head())
+
+ind["inst"] = np.argmax(np.array(ind[[c for c in ind if c.startswith("instl")]]), axis=1)
+plot_categoricals("inst", "Target", ind, annotate=False)
+
+plt.figure(figsize=(10, 8))
+sns.violinplot(x="Target", y="inst", data=ind)
+plt.title('Education Distribution by Target')
+plt.show()
+
+print(ind.shape)
+
+ind["escolari/age"] = ind["escolari"] / ind["age"]
+
+plt.figure(figsize=(10, 8))
+sns.violinplot(x="Target", y="escolari/age", data=ind)
+plt.show()
+
+ind["inst/age"] = ind["inst"] / ind["age"]
+ind["tech"] = ind["v18q"] + ind["mobilephone"]
+print(ind["tech"].describe())
+
+range_ = lambda x: x.max() - x.min()
+range_.__name__ = "range_"
+
+ind_agg = ind.drop(columns="Target").groupby("idhogar").agg(["min", "max", "sum", "count", "std", range_])
+print(ind_agg.head())
+
+new_col = []
+for c in ind_agg.columns.levels[0]:
+    for stat in ind_agg.columns.levels[1]:
+        new_col.append(f"{c}-{stat}")
+
+ind_agg.columns = new_col
+print(ind_agg.head())
+
+ind_agg.iloc[:, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]].head()
+
+# Create correlation matrix
+corr_matrix = ind_agg.corr()
+
+# Select upper triangle of correlation matrix
+upper = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(np.bool))
+
+# Find index of feature columns with correlation greater than 0.95
+to_drop = [column for column in upper.columns if any(abs(upper[column]) > 0.95)]
+
+print(f'There are {len(to_drop)} correlated columns to remove.')
+
+ind_agg = ind_agg.drop(columns=to_drop)
+ind_feats = list(ind_agg.columns)
+
+final = heads.merge(ind_agg, on="idhogar", how="left")
+
+print('Final features shape: ', final.shape)
+
+print(final.head())
+
+corrs = final.corr()["Target"]
+
+print(corrs.sort_values().head())
+print(corrs.sort_values().dropna().tail())
+
+plot_categoricals('escolari-max', 'Target', final, annotate=False)
+
+plt.figure(figsize = (10, 6))
+sns.violinplot(x = 'Target', y = 'escolari-max', data = final)
+plt.title('Max Schooling by Target')
+plt.show()
+
+plt.figure(figsize = (10, 6))
+sns.boxplot(x = 'Target', y = 'escolari-max', data = final)
+plt.title('Max Schooling by Target')
+plt.show()
+
+plt.figure(figsize = (10, 6))
+sns.boxplot(x = 'Target', y = 'meaneduc', data = final)
+plt.xticks([0, 1, 2, 3], poverty_mapping.values())
+plt.title('Average Schooling by Target')
+plt.show()
+
+plt.figure(figsize = (10, 6))
+sns.boxplot(x = 'Target', y = 'overcrowding', data = final)
+plt.xticks([0, 1, 2, 3], poverty_mapping.values())
+plt.title('Overcrowding by Target')
+plt.show()
+
+head_gender = ind.loc[ind["parentesco1"] == 1, ["idhogar", "female"]]
+final = final.merge(head_gender, on="idhogar", how="left").rename(columns={"female": "female-head"})
+
+print(final.groupby("female-head")["Target"].value_counts(normalize=True))
+
+sns.violinplot(x = 'female-head', y = 'Target', data = final)
+plt.title('Target by Female Head of Household')
+plt.show()
+
+plt.figure(figsize = (8, 8))
+sns.boxplot(x = 'Target', y = 'meaneduc', hue = 'female-head', data = final)
+plt.title('Average Education by Target and Female Head of Household', size = 16)
+plt.show()
+
+print(final.groupby('female-head')['meaneduc'].agg(['mean', 'count']))
 
