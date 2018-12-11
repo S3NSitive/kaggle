@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+import joblib
 
 from scipy.stats import spearmanr
 from collections import Counter
@@ -19,6 +20,7 @@ pd.options.display.max_columns = 150
 # Read in data
 train = pd.read_csv("data/train.csv")
 test = pd.read_csv("data/test.csv")
+"""
 print(train.head())
 
 print(train.info())
@@ -433,7 +435,7 @@ sns.heatmap(corr_mat, vmin=-0.5, vmax=0.8, center=0, cmap=plt.cm.RdYlGn_r, annot
 plt.show()
 
 warnings.filterwarnings("ignore")
-"""
+
 plot_data = train_heads[["Target", "dependency", "walls+roof+floor", "meaneduc", "overcrowding"]]
 
 grid = sns.PairGrid(data=plot_data, size=4, diag_sharey=False, hue="Target", hue_order=[4, 3, 2, 1],
@@ -444,7 +446,6 @@ grid.map_lower(sns.kdeplot, cmap=plt.cm.OrRd_r)
 grid = grid.add_legend()
 plt.suptitle('Feature Plots Colored By Target', size=32, y=1.05)
 plt.show()
-"""
 
 household_feats = list(heads.columns)
 
@@ -562,3 +563,213 @@ plt.show()
 
 print(final.groupby('female-head')['meaneduc'].agg(['mean', 'count']))
 
+joblib.dump(final, open("data/final.joblib", "wb"))
+"""
+from sklearn.metrics import f1_score, make_scorer
+from sklearn.pipeline import Pipeline
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.preprocessing import Imputer
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.model_selection import cross_val_score
+
+final = joblib.load(open("data/final.joblib", "rb"))
+
+scorer = make_scorer(f1_score, greater_is_better=True, average="macro")
+
+train_labels = np.array(list(final[final["Target"].notnull()]["Target"].astype(np.uint8)))
+
+train_set = final[final["Target"].notnull()].drop(columns=["Id", "idhogar", "Target"])
+test_set = final[final["Target"].isnull()].drop(columns=["Id", "idhogar", "Target"])
+
+submission_base = test[["Id", "idhogar"]].copy
+
+features = list(train_set.columns)
+pipeline = Pipeline([("imputer", Imputer(strategy="median")),
+                     ("scaler", MinMaxScaler())])
+
+train_set = pipeline.fit_transform(train_set)
+test_set = pipeline.fit_transform(test_set)
+"""
+model = RandomForestClassifier(n_estimators=100, random_state=10, n_jobs=-1)
+cv_score = cross_val_score(model, train_set, train_labels, cv=10, scoring=scorer)
+
+print(f"10 Fold Cross Validation F1 Score = {round(cv_score.mean(), 4)} with std = {round(cv_score.std(), 4)}")
+
+model.fit(train_set, train_labels)
+
+feature_importances = pd.DataFrame({"feature": features, "importance": model.feature_importances_})
+print(feature_importances.sort_values(by="importance", ascending=False).head())
+"""
+
+def plot_feature_importances(df, n=10, threshold=None):
+    """
+    Plots n most important features. Also plots the cumulative importance if
+    threshold is specified and prints the number of features needed to reach threshold cumulative importance.
+    Intended for use with any tree-based feature importances.
+
+        Args:
+            df (dataframe): Dataframe of feature importances. Columns must be "feature" and "importance".
+
+            n (int): Number of most important features to plot. Default is 15.
+
+            threshold (float): Threshold for cumulative importance plot. If not provided, no plot is made.
+                               Default is None.
+
+        Returns:
+            df (dataframe): Dataframe ordered by feature importances with a normalized column (sums to 1)
+                            and a cumulative importance column
+
+        Note:
+
+            * Normalization in this case means sums to 1.
+            * Cumulative importance is calculated by summing features from most to least important
+            * A threshold of 0.9 will show the most important features needed to reach 90% of cumulative importance
+
+    """
+    plt.style.use("fivethirtyeight")
+
+    df = df.sort_values("importance", ascending=False).reset_index(drop=True)
+    df["importance_normalized"] = df["importance"] / df["importance"].sum()
+    df["cumulative_importance"] = np.cumsum(df["importance_normalized"])
+
+    plt.rcParams["font.size"] = 12
+
+    df.loc[:n, :].plot.barh(y="importance_normalized",
+                            x="feature",
+                            color="darkgreen",
+                            edgecolor="k",
+                            figsize=(12, 8),
+                            legend=False,
+                            linewidth=2)
+
+    plt.xlabel("Normalized Importance", size=18)
+    plt.ylabel("")
+    plt.title(f"{n} Most Important Feature", size=18)
+    plt.gca().invert_yaxis()
+    plt.show()
+
+    if threshold:
+        plt.figure(figsize=(8, 6))
+        plt.plot(list(range(len(df))), df["cumulative_importance"], "b-")
+        plt.xlabel("Number of Features", size=16)
+        plt.ylabel("Cumulative importance", size=18)
+
+        importance_index = np.min(np.where(df["cumulative_importance"] > threshold))
+
+        plt.vlines(importance_index + 1, ymin=0, ymax=1.05, linestyles="--", colors="red")
+        plt.show()
+
+        print('{} features required for {:.0f}% of cumulative importance.'.format(importance_index + 1,
+                                                                                  100 * threshold))
+
+    return df
+
+
+# norm_fi = plot_feature_importances(feature_importances, threshold=0.95)
+
+
+def kde_target(df, variable):
+    colors = {1: "red", 2: "orange", 3: "blue", 4: "green"}
+
+    plt.figure(figsize=(12, 8))
+
+    df = df[df["Target"].notnull()]
+
+    for level in df["Target"].unique():
+        subset = df[df["Target"] == level].copy()
+        sns.kdeplot(subset[variable].dropna(),
+                    label=f"Poverty level: {level}",
+                    color=colors[int(subset["Target"].unique())])
+
+    plt.xlabel(variable)
+    plt.ylabel("Density")
+    plt.title(f"{variable.capitalize()} Distribution")
+    plt.show()
+
+
+# kde_target(final, "meaneduc")
+# kde_target(final, 'escolari/age-range_')
+
+from sklearn.svm import LinearSVC
+from sklearn.ensemble import ExtraTreesClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.linear_model import LogisticRegression, RidgeClassifierCV
+from sklearn.neural_network import MLPClassifier
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+
+from sklearn.exceptions import ConvergenceWarning
+
+warnings.filterwarnings("ignore", category=ConvergenceWarning)
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=UserWarning)
+
+model_results = pd.DataFrame(columns=["model", "cv_mean", "cv_std"])
+
+
+def cv_model(train, train_labels, model, name, model_results=None):
+    cv_scores = cross_val_score(model, train, train_labels, cv=10, scoring=scorer, n_jobs=-1)
+    print(f"{name} 10 Fold CV Score: {round(cv_scores.mean(), 5)} with std: {round(cv_scores.std(), 5)}")
+
+    if model_results is not None:
+        model_results = model_results.append(pd.DataFrame({"model": name,
+                                                           "cv_mean": cv_scores.mean(),
+                                                           "cv_std": cv_scores.std},
+                                                          index=[0]),
+                                             ignore_index=True)
+
+        return model_results
+
+model_results = cv_model(train_set, train_labels, LinearSVC(), "LSVC", model_results)
+model_results = cv_model(train_set, train_labels, GaussianNB(), "GNB", model_results)
+model_results = cv_model(train_set, train_labels, MLPClassifier(hidden_layer_sizes=(32, 64, 128, 64, 32)),
+                         "MLP", model_results)
+model_results = cv_model(train_set, train_labels, LinearDiscriminantAnalysis(), "LDA", model_results)
+model_results = cv_model(train_set, train_labels, RidgeClassifierCV(), "RIDGE", model_results)
+
+for n in [5, 10, 15]:
+    model_results = cv_model(train_set, train_labels, KNeighborsClassifier(n_neighbors=n), f"KNN-{n}", model_results)
+
+model_results = cv_model(train_set, train_labels, ExtraTreesClassifier(n_estimators=100, random_state=10),
+                         "EXT", model_results)
+model_results = cv_model(train_set, train_labels, RandomForestClassifier(n_estimators=100, random_state=10),
+                         "RF", model_results)
+
+model_results.set_index("model", inplace=True)
+model_results["cv_mean"].plot.bar(color="orange",
+                                  figsize=(8, 6),
+                                  yerr=list(model_results["cv_std"]),
+                                  edgecolor="k",
+                                  linewidth=2)
+plt.title("Model F1 Score Result")
+plt.ylabel("Mean F1 Score (with error bar)")
+plt.show()
+
+model_results.reset_index(inplace=True)
+
+test_ids = list(final.loc[final['Target'].isnull(), 'idhogar'])
+
+
+def submit(model, train, train_labels, test, test_ids):
+    """Train and test a model on the dataset"""
+
+    # Train on the data
+    model.fit(train, train_labels)
+    predictions = model.predict(test)
+    predictions = pd.DataFrame({'idhogar': test_ids,
+                                'Target': predictions})
+
+    # Make a submission dataframe
+    submission = submission_base.merge(predictions,
+                                       on='idhogar',
+                                       how='left').drop(columns=['idhogar'])
+
+    # Fill in households missing a head
+    submission['Target'] = submission['Target'].fillna(4).astype(np.int8)
+
+    return submission
+
+
+rf_submission = submit(RandomForestClassifier(n_estimators=100, random_state=10, n_jobs=-1),
+                       train_set, train_labels, test_set, test_ids)
+rf_submission.to_csv('data/rf_submission.csv', index=False)
