@@ -581,7 +581,7 @@ train_labels = np.array(list(final[final["Target"].notnull()]["Target"].astype(n
 train_set = final[final["Target"].notnull()].drop(columns=["Id", "idhogar", "Target"])
 test_set = final[final["Target"].isnull()].drop(columns=["Id", "idhogar", "Target"])
 
-submission_base = test[["Id", "idhogar"]].copy
+submission_base = pd.DataFrame({'Id': test["Id"], 'idhogar': test["idhogar"]})
 
 features = list(train_set.columns)
 pipeline = Pipeline([("imputer", Imputer(strategy="median")),
@@ -706,9 +706,9 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 model_results = pd.DataFrame(columns=["model", "cv_mean", "cv_std"])
 
-
+"""
 def cv_model(train, train_labels, model, name, model_results=None):
-    cv_scores = cross_val_score(model, train, train_labels, cv=10, scoring=scorer, n_jobs=-1)
+    cv_scores = cross_val_score(model, train, train_labels, cv=10, scoring=scorer, n_jobs=1)
     print(f"{name} 10 Fold CV Score: {round(cv_scores.mean(), 5)} with std: {round(cv_scores.std(), 5)}")
 
     if model_results is not None:
@@ -736,14 +736,14 @@ model_results = cv_model(train_set, train_labels, RandomForestClassifier(n_estim
                          "RF", model_results)
 
 model_results.set_index("model", inplace=True)
-model_results["cv_mean"].plot.bar(color="orange",
-                                  figsize=(8, 6),
-                                  yerr=list(model_results["cv_std"]),
-                                  edgecolor="k",
-                                  linewidth=2)
-plt.title("Model F1 Score Result")
-plt.ylabel("Mean F1 Score (with error bar)")
-plt.show()
+# model_results["cv_mean"].plot.bar(color="orange",
+#                                   figsize=(8, 6),
+#                                   yerr=list(model_results["cv_std"]),
+#                                   edgecolor="k",
+#                                   linewidth=2)
+# plt.title("Model F1 Score Result")
+# plt.ylabel("Mean F1 Score (with error bar)")
+# plt.show()
 
 model_results.reset_index(inplace=True)
 
@@ -751,7 +751,7 @@ test_ids = list(final.loc[final['Target'].isnull(), 'idhogar'])
 
 
 def submit(model, train, train_labels, test, test_ids):
-    """Train and test a model on the dataset"""
+    # Train and test a model on the dataset
 
     # Train on the data
     model.fit(train, train_labels)
@@ -769,7 +769,36 @@ def submit(model, train, train_labels, test, test_ids):
 
     return submission
 
-
+rf = RandomForestClassifier(n_estimators=100, random_state=10, n_jobs=-1)
 rf_submission = submit(RandomForestClassifier(n_estimators=100, random_state=10, n_jobs=-1),
                        train_set, train_labels, test_set, test_ids)
 rf_submission.to_csv('data/rf_submission.csv', index=False)
+
+
+rf = RandomForestClassifier(n_estimators=100, random_state=10, n_jobs=1)
+rf.fit(train_set, train_labels)
+predictions = rf.predict(test_set)
+predictions = pd.DataFrame({'idhogar': test_ids, 'Target': predictions})
+
+# Make a submission dataframe
+submission = submission_base.merge(predictions, on='idhogar', how='left').drop(columns=['idhogar'])
+
+# Fill in households missing a head
+submission['Target'] = submission['Target'].fillna(4).astype(np.int8)
+submission.to_csv('data/rf_submission.csv', index=False)
+"""
+
+# Feature Selection
+train_set = pd.DataFrame(train_set, columns=features)
+
+corr_matrix = train_set.corr()
+upper = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1). astype(np.bool))
+to_drop = [column for column in upper.columns if any(abs(upper[column]) > 0.95)]
+print(to_drop)
+
+train_set = train_set.drop(columns=to_drop)
+print(train_set.shape)
+
+test_set = pd.DataFrame(test_set, columns=features)
+train_set, test_set = train_set.align(test_set, axis=1, join="inner")
+features = list(train_set.columns)
