@@ -706,7 +706,7 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 model_results = pd.DataFrame(columns=["model", "cv_mean", "cv_std"])
 
-"""
+
 def cv_model(train, train_labels, model, name, model_results=None):
     cv_scores = cross_val_score(model, train, train_labels, cv=10, scoring=scorer, n_jobs=1)
     print(f"{name} 10 Fold CV Score: {round(cv_scores.mean(), 5)} with std: {round(cv_scores.std(), 5)}")
@@ -719,7 +719,7 @@ def cv_model(train, train_labels, model, name, model_results=None):
                                              ignore_index=True)
 
         return model_results
-
+"""
 model_results = cv_model(train_set, train_labels, LinearSVC(), "LSVC", model_results)
 model_results = cv_model(train_set, train_labels, GaussianNB(), "GNB", model_results)
 model_results = cv_model(train_set, train_labels, MLPClassifier(hidden_layer_sizes=(32, 64, 128, 64, 32)),
@@ -802,3 +802,44 @@ print(train_set.shape)
 test_set = pd.DataFrame(test_set, columns=features)
 train_set, test_set = train_set.align(test_set, axis=1, join="inner")
 features = list(train_set.columns)
+
+from sklearn.feature_selection import RFECV
+from tqdm import tqdm
+
+estimator = RandomForestClassifier(random_state=10, n_estimators=100, n_jobs=1)
+selector = RFECV(estimator, step=1, cv=3, scoring=scorer, n_jobs=1)
+
+selector.fit(train_set, train_labels)
+
+plt.plot(selector.grid_scores_)
+plt.xlabel("Number of Feature")
+plt.ylabel("Macro F1 Score")
+plt.title("Feature Selection Scores")
+
+print(selector.n_features_)
+
+rankings = pd.DataFrame({"feature": list(train_set.columns),
+                         "rank": list(selector.ranking_)}).sort_values("rank")
+rankings.head(10)
+
+train_selected = selector.transform(train_set)
+test_selected = selector.transform(test_set)
+
+selected_features = train_set.columns[np.where(selector.ranking_ == 1)]
+train_selected = pd.DataFrame(train_selected, columns=selected_features)
+test_selected = pd.DataFrame(test_selected, columns=selected_features)
+
+model_results = cv_model(train_selected, train_labels, LinearSVC(), "LSVC-SEL", model_results)
+model_results = cv_model(train_selected, train_labels, GaussianNB(), "GNB-SEL", model_results)
+model_results = cv_model(train_selected, train_labels, MLPClassifier(hidden_layer_sizes=(32, 64, 128, 64, 32)),
+                         "MLP-SEL", model_results)
+model_results = cv_model(train_selected, train_labels, LinearDiscriminantAnalysis(), "LDA-SEL", model_results)
+model_results = cv_model(train_selected, train_labels, RidgeClassifierCV(), "RIDGE-SEL", model_results)
+
+for n in [5, 10, 15]:
+    model_results = cv_model(train_selected, train_labels, KNeighborsClassifier(n_neighbors=n), f"KNN-{n}-SEL", model_results)
+
+model_results = cv_model(train_selected, train_labels, ExtraTreesClassifier(n_estimators=100, random_state=10),
+                         "EXT-SEL", model_results)
+model_results = cv_model(train_selected, train_labels, RandomForestClassifier(n_estimators=100, random_state=10),
+                         "RF-SEL", model_results)
