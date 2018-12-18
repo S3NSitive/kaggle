@@ -1,3 +1,5 @@
+# https://www.kaggle.com/devm2024/transfer-learning-with-vgg-16-cnn-aug-lb-0-1712
+
 import pylab
 import numpy as np
 import pandas as pd

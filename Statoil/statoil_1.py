@@ -1,3 +1,5 @@
+# https://www.kaggle.com/devm2024/keras-model-for-beginners-0-210-on-lb-eda-r-d
+
 import os
 import pylab
 import numpy as np
