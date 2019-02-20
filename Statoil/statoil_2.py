@@ -39,13 +39,13 @@ train = pd.read_json("data/train.json")
 test = pd.read_json("data/test.json")
 target_train = train["is_iceberg"]
 
-train["inc_angel"] = pd.to_numeric(train["inc_angel"], errors="coerce")
-test["inc_angel"] = pd.to_numeric(test["inc_angel"], errors="coerce")
+train["inc_angle"] = pd.to_numeric(train["inc_angle"], errors="coerce")
+test["inc_angle"] = pd.to_numeric(test["inc_angle"], errors="coerce")
 
 train["inc_angle"] = train["inc_angle"].fillna(method="pad")
 X_angle = train["inc_angle"]
-test["inc_angel"] = pd.to_numeric(test["inc_angel"], errors="coerce")
-X_test_angle = test["inc_angel"]
+test["inc_angle"] = pd.to_numeric(test["inc_angle"], errors="coerce")
+X_test_angle = test["inc_angle"]
 
 X_band_1 = np.array([np.array(band).astype(np.float32).reshape(75, 75) for band in train["band_1"]])
 X_band_2 = np.array([np.array(band).astype(np.float32).reshape(75, 75) for band in train["band_2"]])
@@ -88,7 +88,7 @@ def getVggAngleModel():
     input_2 = Input(shape=[1], name="angle")
     angle_layer = Dense(1, )(input_2)
     base_model = VGG16(weights="imagenet", include_top=False, input_shape=X_train.shape[1:], classes=1)
-    x = base_model.get_layer("data/block5_pool").output
+    x = base_model.get_layer("block5_pool").output
 
     x = GlobalMaxPooling2D()(x)
     merge_one = concatenate([x, angle_layer])
